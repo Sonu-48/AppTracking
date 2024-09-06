@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787019763431",
+    "project_id": "locationtracking-a5ab1",
+    "storage_bucket": "locationtracking-a5ab1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787019763431:android:1e2202785d01ac80c71c42",
+        "android_client_info": {
+          "package_name": "com.chuantips10"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeZMKwf6k7xxnhzE1LD2sINZ7p0ePwicY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
