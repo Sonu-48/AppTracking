@@ -1,52 +1,130 @@
-import {ScrollView, Text, TouchableOpacity, View, Alert} from 'react-native';
-import {NativeModules, NativeEventEmitter} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {ScrollView, Text, TouchableOpacity, View, Alert,AppState} from 'react-native';
+import {NativeModules} from 'react-native';
 import {styles} from '../styles/Styles';
 import DeviceInfo from 'react-native-device-info';
-import {useState, useEffect} from 'react';
 import axios from 'axios';
 import {Base_Url} from '../apiEndpoint/ApiEndpoint';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useNavigation} from '@react-navigation/native';
+import Fuse from 'fuse.js';
 
-const {CustomModule} = NativeModules;
-const customModuleEmitter = new NativeEventEmitter(CustomModule);
+const {InstalledAppsModule} = NativeModules;
 
 const Home = () => {
   const navigation = useNavigation();
   const [userDeviceDetails, setUserDeviceDetails] = useState(null);
-  const [deviceId, setDeviceId] = useState('');
-  const [deviceName, setDeviceName] = useState('');
-  const [deviceModel, setDeviceModel] = useState('');
-  const [deviceOs, setDeviceOs] = useState('');
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [apiVersion, setApiVersion] = useState('');
+  const [installedApps, setInstalledApps] = useState([]);
+  const [similarApps, setSimilarApps] = useState([]);
+  const [appsChecked, setAppsChecked] = useState(false);
+  const [lastCloseDate, setLastCloseDate] = useState(null);
 
-
-  const checkAndSendUserDetails = async () => {
-    try {
-      const result = await CustomModule.checkSimilarApps();
-      const similarApps = result.toString().trim();
-
-      if (similarApps) {
-        Alert.alert(
-          `You have already installed similar app(s): ${similarApps}`,
-        );
-        if(userDeviceDetails){
-          sendUserDetails();
-        }
-        console.log(`You have already installed similar apps: ${similarApps}`);
-      } else {
-        Alert.alert('No Similar Apps Detected');
-      }
-
-      await getUserInfo();
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Error checking for similar apps');
+  // Function to handle app state changes
+  const handleAppStateChange = nextAppState => {
+    if (nextAppState.match(/inactive|background/)) {
+      const currentDate = new Date().toISOString();
+      AsyncStorage.setItem('lastCloseDate', currentDate)
+        .then(() => {
+          console.log('Last close date saved:', currentDate);
+          setLastCloseDate(currentDate);
+        })
+        .catch(error => console.error('Error saving last close date:', error));
     }
   };
 
+  useEffect(() => {
+    // Add event listener for app state changes
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  },[]);
+
+  // Fetch installed apps
+  const fetchInstalledApps = async () => {
+    try {
+      const apps = await InstalledAppsModule.getInstalledApps();
+      console.log('Installed apps:', apps);
+      setInstalledApps(apps);
+    } catch (error) {
+      console.error('Error fetching installed apps:', error);
+    }
+  };
+
+  // Get app names from API
+  const getAppNames = async () => {
+    if (!token) {
+      console.error('Token is missing');
+      return;
+    }
+
+    try {
+      const res = await axios.get(Base_Url.appnames, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.data.success) {
+        const packageNames = res.data.data.map(item =>
+          item.app_name.toLowerCase(),
+        );
+        console.log('AppNames from API response:', packageNames);
+
+        const fuseOptions = {
+          includeScore: true,
+          threshold: 0.3,
+        };
+        const fuse = new Fuse(packageNames, fuseOptions);
+
+        // Match installed apps
+        const matchedApps = installedApps.filter(
+          installedApp => fuse.search(installedApp.toLowerCase()).length > 0,
+        );
+
+        console.log('Matched Apps:', matchedApps);
+        if (matchedApps.length > 0) {
+          setSimilarApps(matchedApps);
+          return matchedApps;
+        }
+      } else {
+        console.error('API response indicates failure:', res.data);
+      }
+    } catch (error) {
+      console.error(
+        'Error fetching app names:',
+        error.response?.data || error.message,
+      );
+    }
+    return [];
+  };
+
+  useEffect(() => {
+    const fetchTokenAndUserId = async () => {
+      try {
+        const tokenValue = await AsyncStorage.getItem('token');
+        const userIdValue = await AsyncStorage.getItem('user_id');
+
+        if (tokenValue) {
+          setToken(tokenValue);
+          setUserId(userIdValue);
+        }
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
+    };
+    fetchTokenAndUserId();
+  },[]);
+
+  // Get user device info
+  useEffect(() => { 
   const getUserInfo = async () => {
     try {
       const deviceId = await DeviceInfo.getUniqueId();
@@ -56,12 +134,6 @@ const Home = () => {
       const deviceApiLevel = await DeviceInfo.getSystemVersion();
       console.log('deviceApiLevel', deviceApiLevel);
 
-      setApiVersion(deviceApiLevel);
-      setDeviceId(deviceId);
-      setDeviceName(deviceName);
-      setDeviceModel(deviceModel);
-      setDeviceOs(deviceOs);
-
       const userInfo = {
         deviceId,
         deviceName,
@@ -69,117 +141,81 @@ const Home = () => {
         deviceOs,
       };
       setUserDeviceDetails(userInfo);
+
+      // Fetch last close date from AsyncStorage
+      const lastCloseDate = await AsyncStorage.getItem('lastCloseDate');
+      setLastCloseDate(lastCloseDate);
     } catch (error) {
       console.error('Error getting device information:', error);
     }
   };
+    getUserInfo();
+  },[]);
 
+  // Check for similar apps only once
   useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const value = await AsyncStorage.getItem('token');
-        const userIdValue = await AsyncStorage.getItem('user_id');
-        setUserId(userIdValue);
-        if (value !== null) {
-          setToken(value);
-          console.log('Token:', value);
-        }
-      } catch (error) {
-        console.error('Error fetching token:', error);
-      }
-    };
-    fetchToken();
-  }, []);
+    const checkApps = async () => {
+      if (appsChecked) return; // Prevent re-checking
 
-  //Send User Details
-  const sendUserDetails = async () => {
-    if (!userDeviceDetails || !token) {
-      console.warn('User device details or token is missing');
-      return;
-    }
-    try {
-      const res = await axios.post(Base_Url.appdetect, {
-        deviceId: userDeviceDetails.deviceId,
-        deviceModel: userDeviceDetails.deviceModel,
-        deviceName: userDeviceDetails.deviceName,
-        deviceOs: userDeviceDetails.deviceOs,
-        user_id: userId,
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (res.status === 200) {
-        console.log('User details sent successfully:', res.data);
-        Alert.alert('Success', 'User details sent successfully');
+      await fetchInstalledApps();
+      const matchedApps = await getAppNames();
+
+      // Only alert and send details if similar apps were found
+      if (matchedApps.length > 0) {
+        const similarAppNames = matchedApps.join(', ');
+        console.log('Similar App Names:', similarAppNames);
+        Alert.alert(
+          `You have already installed similar app(s): ${similarAppNames}`,
+        );
+        // Call sendUserDetails after 2 seconds
+        setTimeout(() => {
+          sendUserDetails();
+        }, 2000);
       } else {
-        console.error('Unexpected response status:', res.status);
-        Alert.alert('Error', `Unexpected response status: ${res.status}`);
+        Alert.alert('No Similar Apps Found');
+        console.log('No similar apps found.');
+      }
+
+      setAppsChecked(true);
+    };
+    checkApps();
+  }, [token]);
+
+  // Send user details
+  const sendUserDetails = async () => {
+    // if (!userDeviceDetails || !token) {
+    //   console.warn('User device details or token is missing');
+    //   return;
+    // }
+
+    try {
+      const res = await axios.post(
+        Base_Url.appdetect,
+        {
+          deviceId: userDeviceDetails.deviceId,
+          deviceModel: userDeviceDetails.deviceModel,
+          deviceName: userDeviceDetails.deviceName,
+          deviceOs: userDeviceDetails.deviceOs,
+          user_id: userId,
+          app_closedate: lastCloseDate,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (res.status === 200) {
+        Alert.alert('Success', 'User details sent successfully');
+        console.log('Success', 'User details sent successfully');
       }
     } catch (error) {
-      console.error('Error sending user details:', error.response?.data || error.message);
-      Alert.alert('Error', `Failed to send user details: ${error.response?.data?.message || error.message}`);
+      console.error('Error sending user details:', error.message);
+      Alert.alert('Error', `Failed to send user details: ${error.message}`);
     }
   };
-  
-  useEffect(() => {
-    const handleSimilarAppDetected = async packageName => {
-      Alert.alert(
-        'Similar App Detected',
-        `Similar app with package name ${packageName} detected.`,
-      );
-
-      // Send user details when similar app is detected
-      if (userDeviceDetails) {
-        await sendUserDetails();
-      }
-    };
-
-    // Add listener
-    if (
-      customModuleEmitter &&
-      typeof customModuleEmitter.addListener === 'function'
-    ) {
-      customModuleEmitter.addListener(
-        'SimilarAppDetected',
-        handleSimilarAppDetected,
-      );
-    } else {
-      console.warn('addListener is not available on customModuleEmitter');
-    }
-
-    // Call function to check and send user details
-    checkAndSendUserDetails();
-
-    // Cleanup function
-    return () => {
-      if (customModuleEmitter) {
-        if (typeof customModuleEmitter.removeListener === 'function') {
-          customModuleEmitter.removeListener(
-            'SimilarAppDetected',
-            handleSimilarAppDetected,
-          );
-        } else if (typeof customModuleEmitter.off === 'function') {
-          customModuleEmitter.off(
-            'SimilarAppDetected',
-            handleSimilarAppDetected,
-          );
-        } else if (
-          typeof customModuleEmitter.removeEventListener === 'function'
-        ) {
-          customModuleEmitter.removeEventListener(
-            'SimilarAppDetected',
-            handleSimilarAppDetected,
-          );
-        } else {
-          console.warn('No valid method found to remove the listener');
-        }
-      } else {
-        console.warn('customModuleEmitter is not defined');
-      }
-    };
-  },[]);
 
   // Logout function
   const handleLogout = async () => {
@@ -206,7 +242,7 @@ const Home = () => {
           <TouchableOpacity
             onPress={handleLogout}
             style={{flex: 1, alignItems: 'flex-end'}}>
-            <Text style={{fontWeight: '600', fontSize: 20, color: '#EE14D8'}}>
+            <Text style={{fontWeight: '600', fontSize: 20, color: '#FFFFFF'}}>
               Logout
             </Text>
           </TouchableOpacity>
@@ -215,25 +251,25 @@ const Home = () => {
           <TouchableOpacity
             style={{flex: 1}}
             onPress={() => navigation.navigate('Credits')}>
-            <View style={[styles.dashboardbox, {backgroundColor: '#45FBC4'}]}>
+            <View style={styles.dashboardbox}>
               <Text style={styles.title}>Credits</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={{flex: 1}}
             onPress={() => navigation.navigate('Tutorials')}>
-            <View style={[styles.dashboardbox, {backgroundColor: '#FFF599'}]}>
+            <View style={styles.dashboardbox}>
               <Text style={styles.title}>Tutorials and Guides</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={{flex: 1}} onPress={()=>navigation.navigate('Tips')}>
-            <View style={[styles.dashboardbox, {backgroundColor: '#9EC5FF'}]}>
+          <TouchableOpacity
+            style={{flex: 1}}
+            onPress={() => navigation.navigate('Tips')}>
+            <View style={styles.dashboardbox}>
               <Text style={styles.title}>Tips</Text>
             </View>
           </TouchableOpacity>
         </View>
-      </View>
-      <View>
       </View>
     </ScrollView>
   );

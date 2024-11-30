@@ -8,5 +8,6 @@ export const Base_Url={
     register:`${base_url}/auth/register`,
     login:`${base_url}/auth/login`,
     appdetect :`${base_url}/appdetect`,
-    getpackagename:`${base_url}api/getpackageName`
+    getpackagename:`${base_url}api/getpackageName`,
+    appnames:`${base_url}/get/appnames`
 }

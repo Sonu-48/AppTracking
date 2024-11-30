@@ -1,5 +1,5 @@
 package com.chuantips10
-import com.chuantips10.CustomPackage
+
 import android.app.Application
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -10,6 +10,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
+import com.chuantips10.InstalledAppsPackage // Ensure your custom package is imported
 
 class MainApplication : Application(), ReactApplication {
 
@@ -17,9 +18,7 @@ class MainApplication : Application(), ReactApplication {
       object : DefaultReactNativeHost(this) {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
-              // Packages that cannot be autolinked yet can be added manually here, for example:
-              // add(MyReactNativePackage())
-              add(CustomPackage())
+                add(InstalledAppsPackage()) // Correct way to add the custom package
             }
 
         override fun getJSMainModuleName(): String = "index"
@@ -37,7 +36,7 @@ class MainApplication : Application(), ReactApplication {
     super.onCreate()
     SoLoader.init(this, false)
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
+      // Load the native entry point for the new architecture
       load()
     }
   }

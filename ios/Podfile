@@ -14,7 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'locationtracking' do
+target 'com.chuantips10' do
   config = use_native_modules!
 
   use_react_native!(
@@ -23,7 +23,7 @@ target 'locationtracking' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  target 'locationtrackingTests' do
+  target 'com.chuantips10Tests' do
     inherit! :complete
     # Pods for testing
   end

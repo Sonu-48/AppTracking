@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -41,8 +41,11 @@ const validationSchema = yup.object().shape({
 
 const SignupPage = ({navigation}) => {
   const [showPassword, setShowPassword] = React.useState(false);
-  // handleLogin Function
-  const handleSubmit = async (values) => {
+  const [loading, setLoading] = useState(false);
+  
+  // SignUp Function
+  const handleSubmit = async values => {
+    setLoading(true);
     try {
       const res = await axios({
         method: 'post',
@@ -55,10 +58,12 @@ const SignupPage = ({navigation}) => {
         },
       });
       if (res.data.success === true) {
+        setLoading(false);
         Alert.alert(res.data.message);
         navigation.navigate('Login');
       }
     } catch (error) {
+      setLoading(false);
       console.log(error);
     }
   };
@@ -86,7 +91,7 @@ const SignupPage = ({navigation}) => {
               touched,
             }) => (
               <LinearGradient
-                colors={['#71F5FE', '#FFFFFF']}
+                colors={['#BAA769', '#BAA769']}
                 style={styles.linearGradient}>
                 <View style={styles.formWrapper}>
                   <Text style={styles.h4}>Sign Up</Text>
@@ -94,7 +99,7 @@ const SignupPage = ({navigation}) => {
                     <Text style={styles.text}>Full Name</Text>
                     <TextInput
                       placeholder="Enter name"
-                      placeholderTextColor="#000"
+                      placeholderTextColor="#000000"
                       style={styles.input}
                       value={values.fullname}
                       onChangeText={handleChange('fullname')}
@@ -108,7 +113,7 @@ const SignupPage = ({navigation}) => {
                     <Text style={styles.text}>Email</Text>
                     <TextInput
                       placeholder="Enter email"
-                      placeholderTextColor="#000"
+                      placeholderTextColor="#000000"
                       style={styles.input}
                       value={values.email}
                       onChangeText={handleChange('email')}
@@ -122,7 +127,7 @@ const SignupPage = ({navigation}) => {
                     <Text style={styles.text}>Phone No</Text>
                     <TextInput
                       placeholder="Enter phone number"
-                      placeholderTextColor="#000"
+                      placeholderTextColor="#000000"
                       keyboardType="phone-pad"
                       style={styles.input}
                       value={values.phonenumber}
@@ -147,22 +152,24 @@ const SignupPage = ({navigation}) => {
                       ]}>
                       <TextInput
                         placeholder="Enter password"
-                        placeholderTextColor="#000"
+                        placeholderTextColor="#000000"
                         style={[styles.input, {flex: 1}]}
                         secureTextEntry={!showPassword}
                         value={values.password}
                         onChangeText={handleChange('password')}
                         onBlur={handleBlur('password')}
                       />
-                      <TouchableOpacity
+                     <View style={{width:50,height:50}}>
+                     <TouchableOpacity
                         onPress={() => setShowPassword(!showPassword)}
-                        style={{marginRight: 10}}>
+                        style={{marginRight: 10,width:'100%',height:'100%',justifyContent:'center',alignItems:'center'}}>
                         <Icon
                           name={showPassword ? 'visibility' : 'visibility-off'}
                           size={28}
-                          color="#EE14D8"
+                          color="#000000"
                         />
                       </TouchableOpacity>
+                     </View>
                     </View>
                     {touched.password && errors.password && (
                       <Text style={styles.errortext}>{errors.password}</Text>
@@ -175,23 +182,44 @@ const SignupPage = ({navigation}) => {
                       justifyContent: 'flex-end',
                       paddingTop: 10,
                     }}>
-                    <Text style={{color: '#000', fontWeight: '600'}}>
+                    <Text style={{color: '#000', fontWeight: '600',fontSize:16}}>
                       Already have an accout?{' '}
                     </Text>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('Login')}>
-                      <Text
+                    <View
+                      style={{
+                        width: 60,
+                        height: 60,
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('Login')}
                         style={{
-                          color: '#EE14D8',
-                          fontWeight: '600',
-                          fontSize: 16,
+                          width: '100%',
+                          height: '100%',
+                          justifyContent: 'center',
+                          alignItems: 'center',
                         }}>
-                        Login
-                      </Text>
-                    </TouchableOpacity>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontWeight: '700',
+                            fontSize: 17,
+                          }}>
+                          SignIn
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <TouchableOpacity style={styles.btn} onPress={handleSubmit}>
-                    <Text style={styles.btntext}>Signup</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.btn,
+                      loading && {backgroundColor: '#b0bec5'},
+                    ]}
+                    onPress={handleSubmit}>
+                    <Text style={styles.btntext}>
+                      {loading ? 'Loading...' : 'Signup'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>

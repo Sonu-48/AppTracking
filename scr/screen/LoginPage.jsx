@@ -20,6 +20,7 @@ import axios from 'axios';
 const validationSchema = yup.object().shape({
   phonenumber: yup
     .string()
+    .length(10, 'Phone number must be exactly 10 digits')
     .matches(
       /^(?:\+?\d{1,3})?[-.\s]?(\(?\d{1,4}\)?[-.\s]?)?[\d\s.-]{5,15}\d$/,
       'Invalid phone number',
@@ -32,9 +33,11 @@ const validationSchema = yup.object().shape({
 });
 
 const LoginPage = ({navigation}) => {
+  const [loading,setLoading] = useState(false);
 
  //Login Api
  const handleSubmit = async values => {
+  setLoading(true);
   try {
     const res = await axios({
       method: 'post',
@@ -45,14 +48,17 @@ const LoginPage = ({navigation}) => {
       },
     });
     if (res.data.success === true) {
+      setLoading(false);
       const key = res.data.data.token;
       await AsyncStorage.setItem('token', key);
       Alert.alert(res.data.message);
       navigation.navigate('Home');
     } else {
       Alert.alert('Invalid credentials');
+      setLoading(false)
     }
   } catch (error) {
+    setLoading(false);
     Alert.alert('Invalid credentials');
     console.log(error);
   }
@@ -90,7 +96,7 @@ if (token) {
               touched,
             }) => (
               <LinearGradient
-                colors={['#71F5FE', '#FFFFFF']}
+                colors={['#BAA769', '#BAA769']}
                 style={styles.linearGradient}>
                 <View style={styles.formWrapper}>
                   <Text style={styles.h4}>Sign In</Text>
@@ -98,7 +104,7 @@ if (token) {
                     <Text style={styles.text}>Phone No</Text>
                     <TextInput
                       placeholder="Enter phone number"
-                      placeholderTextColor="#000"
+                      placeholderTextColor="#000000"
                       keyboardType="phone-pad"
                       style={styles.input}
                       value={values.phonenumber}
@@ -113,7 +119,7 @@ if (token) {
                     <Text style={styles.text}>Password</Text>
                     <TextInput
                       placeholder="Enter password"
-                      placeholderTextColor="#000"
+                      placeholderTextColor="#000000"
                       style={styles.input}
                       secureTextEntry
                       value={values.password}
@@ -124,14 +130,42 @@ if (token) {
                       <Text style={styles.errortext}>{errors.password}</Text>
                     )}
                   </View>
-                  <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingTop:10}}>
-                    <Text style={{color:'#000',fontWeight:'600'}}>Don't have an account? </Text>
-                    <TouchableOpacity onPress={()=>navigation.navigate('Signup')}>
-                      <Text style={{color:'#EE14D8',fontWeight:'600',fontSize:16}}>Singup</Text>
-                    </TouchableOpacity>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      paddingTop: 10,
+                    }}>
+                   <Text style={{color:'#000',fontWeight:'600',fontSize:16}}>Don't have an account? </Text>
+                    <View
+                      style={{
+                        width: 60,
+                        height: 60,
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('Signup')}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontWeight: '700',
+                            fontSize: 17,
+                          }}>
+                          Singup
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <TouchableOpacity style={styles.btn} onPress={handleSubmit}>
-                    <Text style={styles.btntext}>Login</Text>
+                  <TouchableOpacity  style={[styles.btn, loading && { backgroundColor: '#b0bec5' }]}  onPress={handleSubmit} disabled={loading}>
+                    <Text style={styles.btntext}>{loading? 'Loading...':'Login'}</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
